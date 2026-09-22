@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VELOCITY — High Performance Automotive Showcase & Digital Engineering</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Three.js CDN for 3D Automotive WebGL Canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts: Syne (Display) & JetBrains Mono (Telemetry) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind Custom Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'vel-obsidian': '#0A0C10',
+                        'vel-carbon': '#121620',
+                        'vel-surface': '#1A202C',
+                        'vel-slate': '#94A3B8',
+                        'vel-cyan': '#38BDF8',
+                        'vel-cyan-glow': 'rgba(56, 189, 248, 0.15)',
+                    },
+                    fontFamily: {
+                        syne: ['"Syne"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #0A0C10;
+            color: #F8FAFC;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* SVG Grain Overlay */
+        .carbon-noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.035;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* Canvas container positioning */
+        #webgl-canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Telemetry grid lines */
+        .telemetry-grid {
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0A0C10;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1A202C;
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #38BDF8;
+        }
+    </style>
+</head>
+<body class="selection:bg-vel-cyan selection:text-black relative telemetry-grid">
+
+    <!-- GLOBAL CARBON NOISE OVERLAY -->
+    <div class="carbon-noise"></div>
+
+    <!-- TOP TELEMETRY NAVIGATION BAR -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-vel-obsidian/85 backdrop-blur-md border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            
+            <!-- Brand Logo -->
+            <a href="#" class="flex items-center space-x-3 group">
+                <div class="w-8 h-8 rounded border border-vel-cyan/40 bg-vel-carbon flex items-center justify-center font-syne font-bold text-vel-cyan group-hover:bg-vel-cyan group-hover:text-black transition-colors">
+                    V
+                </div>
+                <div>
+                    <span class="font-syne font-bold text-xl tracking-wider text-white block">VELOCITY</span>
+                    <span class="text-[9px] font-mono tracking-widest text-vel-slate block">Z.C.E ENGINE // PROJECT #02</span>
+                </div>
+            </a>
+
+            <!-- Navigation Links -->
+            <nav class="hidden md:flex items-center space-x-8 text-xs font-mono uppercase tracking-widest text-vel-slate">
+                <a href="#telemetry" class="hover:text-vel-cyan transition-colors">Telemetry</a>
+                <a href="#fleet" class="hover:text-vel-cyan transition-colors">Fleet</a>
+                <a href="#specs" class="hover:text-vel-cyan transition-colors">Specs Matrix</a>
+                <a href="#configurator" class="hover:text-vel-cyan transition-colors">Build Configurator</a>
+            </nav>
+
+            <!-- Sound Generator Toggle & Quick CTA -->
+            <div class="flex items-center space-x-4">
+                <button id="audio-engine-btn" onclick="toggleEngineSound()" class="px-3 py-1.5 rounded border border-white/10 bg-vel-carbon text-[10px] font-mono text-vel-slate hover:text-vel-cyan hover:border-vel-cyan/50 flex items-center space-x-2 transition-all">
+                    <i data-lucide="volume-2" class="w-3.5 h-3.5 text-vel-cyan"></i>
+                    <span id="audio-btn-label">REV ENGINE</span>
+                </button>
+
+                <button onclick="scrollToConfigurator()" class="hidden sm:inline-flex px-4 py-2 rounded bg-vel-cyan text-black font-syne font-bold text-xs uppercase tracking-wider hover:bg-white transition-colors">
+                    Build Spec
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- HERO SECTION WITH 3D WEBGL CANVAS -->
+    <section class="relative h-screen w-full flex flex-col justify-between pt-24 pb-12 px-6 overflow-hidden">
+        
+        <!-- Interactive 3D WebGL Canvas Container -->
+        <div id="webgl-canvas-container"></div>
+
+        <!-- Canvas Telemetry Overlay (Top Left & Top Right) -->
+        <div class="relative z-10 max-w-7xl mx-auto w-full flex justify-between items-start pt-6 text-[11px] font-mono text-vel-slate">
+            <div class="bg-vel-obsidian/80 border border-white/10 p-3 rounded backdrop-blur-sm space-y-1">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full bg-vel-cyan animate-pulse"></span>
+                    <span class="text-white font-bold">WEBGL SYSTEM ACTIVE</span>
+                </div>
+                <div class="text-[10px] text-gray-400">FPS: <span id="fps-counter" class="text-vel-cyan">60</span> | POLYGONS: 18,420</div>
+                <div class="text-[10px] text-gray-400">CAMERA ROTATION: <span id="camera-angle-counter" class="text-white">DYNAMIC</span></div>
+            </div>
+
+            <div class="hidden sm:block bg-vel-obsidian/80 border border-white/10 p-3 rounded backdrop-blur-sm text-right space-y-1">
+                <div class="text-vel-cyan font-bold">SPECIFICATION // SPEC-02</div>
+                <div class="text-[10px] text-gray-400">CHASSIS: CARBON MONOCOQUE</div>
+                <div class="text-[10px] text-gray-400">AERODYNAMICS: ACTIVE DOWNFORCE</div>
+            </div>
+        </div>
+
+        <!-- Hero Center Title & Typography -->
+        <div class="relative z-10 max-w-5xl mx-auto text-center space-y-6 my-auto">
+            <div class="inline-flex items-center space-x-2 bg-vel-carbon/90 border border-vel-cyan/30 px-3 py-1 rounded-full text-xs font-mono text-vel-cyan uppercase tracking-widest">
+                <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+                <span>AERODYNAMIC DIGITAL ARCHITECTURE</span>
+            </div>
+
+            <h1 class="font-syne text-5xl sm:text-7xl lg:text-8xl font-extrabold uppercase tracking-tight text-white leading-none">
+                PERFORMANCE <br>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-vel-slate via-white to-vel-cyan">UNBOUND</span>
+            </h1>
+
+            <p class="max-w-xl mx-auto text-vel-slate text-xs sm:text-sm font-mono leading-relaxed">
+                High-torque web engineering for hypercar showcases, tuning houses, and luxury automotive brands. Experience interactive WebGL rendering and real-time telemetry.
+            </p>
+        </div>
+
+        <!-- Hero Bottom Bar -->
+        <div class="relative z-10 max-w-7xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs font-mono text-vel-slate">
+            <div class="flex items-center space-x-6">
+                <span>ROTATION: MOUSE DRAG / TOUCH</span>
+                <span class="text-vel-cyan">// 0-100 KM/H: 2.1s</span>
+            </div>
+            <div class="flex items-center space-x-2 text-white hover:text-vel-cyan cursor-pointer transition-colors" onclick="scrollToConfigurator()">
+                <span>CUSTOM BUILD SPECS</span>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-vel-cyan"></i>
+            </div>
+        </div>
+    </section>
+
+    <!-- PERFORMANCE TELEMETRY BAR -->
+    <section id="telemetry" class="py-16 bg-vel-carbon border-y border-white/10 relative z-20">
+        <div class="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
+            
+            <div class="space-y-1">
+                <span class="text-[10px] font-mono text-vel-slate uppercase tracking-widest block">0-60 MPH ACCELERATION</span>
+                <div class="font-syne text-3xl sm:text-4xl font-extrabold text-white flex items-baseline space-x-1">
+                    <span>1.98</span>
+                    <span class="text-xs font-mono text-vel-cyan">SEC</span>
+                </div>
+                <span class="text-[10px] text-gray-500 font-mono">LAUNCH CONTROL ENABLED</span>
+            </div>
+
+            <div class="space-y-1">
+                <span class="text-[10px] font-mono text-vel-slate uppercase tracking-widest block">PEAK HORSEPOWER</span>
+                <div class="font-syne text-3xl sm:text-4xl font-extrabold text-white flex items-baseline space-x-1">
+                    <span>1,250</span>
+                    <span class="text-xs font-mono text-vel-cyan">BHP</span>
+                </div>
+                <span class="text-[10px] text-gray-500 font-mono">TWIN-TURBO V8 HYBRID</span>
+            </div>
+
+            <div class="space-y-1">
+                <span class="text-[10px] font-mono text-vel-slate uppercase tracking-widest block">DRAG COEFFICIENT</span>
+                <div class="font-syne text-3xl sm:text-4xl font-extrabold text-white flex items-baseline space-x-1">
+                    <span>0.24</span>
+                    <span class="text-xs font-mono text-vel-cyan">Cd</span>
+                </div>
+                <span class="text-[10px] text-gray-500 font-mono">ACTIVE REAR DIFFUSER</span>
+            </div>
+
+            <div class="space-y-1">
+                <span class="text-[10px] font-mono text-vel-slate uppercase tracking-widest block">CARBON FIBER RATIO</span>
+                <div class="font-syne text-3xl sm:text-4xl font-extrabold text-white flex items-baseline space-x-1">
+                    <span>88.4</span>
+                    <span class="text-xs font-mono text-vel-cyan">%</span>
+                </div>
+                <span class="text-[10px] text-gray-500 font-mono">DRY CARBON MONOCOQUE</span>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- FLEET SHOWCASE SECTION -->
+    <section id="fleet" class="py-28 px-6 max-w-7xl mx-auto space-y-16">
+        
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/10 pb-8">
+            <div class="space-y-2">
+                <span class="text-xs font-mono text-vel-cyan tracking-widest uppercase block">// THE FLEET CATALOG</span>
+                <h2 class="font-syne text-4xl sm:text-5xl font-extrabold text-white">HIGH-TORQUE SPECIMENS</h2>
+            </div>
+
+            <!-- Category Filters -->
+            <div class="flex flex-wrap gap-2 text-xs font-mono">
+                <button onclick="filterFleet('all')" class="fleet-filter-btn px-4 py-2 rounded bg-vel-cyan text-black font-bold">ALL VEHICLES</button>
+                <button onclick="filterFleet('hypercar')" class="fleet-filter-btn px-4 py-2 rounded border border-white/10 text-vel-slate hover:text-white">HYPERCARS</button>
+                <button onclick="filterFleet('track')" class="fleet-filter-btn px-4 py-2 rounded border border-white/10 text-vel-slate hover:text-white">TRACK EDITION</button>
+                <button onclick="filterFleet('custom')" class="fleet-filter-btn px-4 py-2 rounded border border-white/10 text-vel-slate hover:text-white">CUSTOM TUNING</button>
+            </div>
+        </div>
+
+        <!-- Fleet Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="fleet-grid">
+            
+            <!-- Vehicle 1 -->
+            <div class="fleet-card hypercar bg-vel-carbon border border-white/10 rounded-lg overflow-hidden group hover:border-vel-cyan/50 transition-all">
+                <div class="h-60 overflow-hidden relative">
+                    <img src="https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80" alt="Apex GT Hypercar" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <div class="absolute top-3 left-3 bg-vel-obsidian/90 px-2.5 py-1 rounded text-[10px] font-mono text-vel-cyan border border-vel-cyan/30">
+                        HYPERCAR
+                    </div>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <h3 class="font-syne text-2xl font-bold text-white">APEX GT-1</h3>
+                        <p class="text-xs text-vel-slate font-mono">Twin-Turbo V8 / Carbon Aero Kit</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] font-mono border-t border-white/10 pt-3 text-gray-400">
+                        <div>POWER: <span class="text-white">1,150 HP</span></div>
+                        <div>TOP SPEED: <span class="text-white">350 KM/H</span></div>
+                    </div>
+                    <button onclick="openVehicleModal('APEX GT-1', '1,150 HP V8 Twin-Turbo', 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80')" class="w-full py-2.5 rounded bg-vel-surface hover:bg-vel-cyan hover:text-black font-mono text-xs text-vel-slate font-bold uppercase transition-colors flex items-center justify-center space-x-2">
+                        <span>INSPECT TELEMETRY</span>
+                        <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vehicle 2 -->
+            <div class="fleet-card track bg-vel-carbon border border-white/10 rounded-lg overflow-hidden group hover:border-vel-cyan/50 transition-all">
+                <div class="h-60 overflow-hidden relative">
+                    <img src="https://images.unsplash.com/photo-1544829099-b9a0c07fad1a?auto=format&fit=crop&w=800&q=80" alt="Track Weapon" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <div class="absolute top-3 left-3 bg-vel-obsidian/90 px-2.5 py-1 rounded text-[10px] font-mono text-vel-cyan border border-vel-cyan/30">
+                        TRACK EDITION
+                    </div>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <h3 class="font-syne text-2xl font-bold text-white">KINETIC R-35</h3>
+                        <p class="text-xs text-vel-slate font-mono">Lightweight Track Monocoque</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] font-mono border-t border-white/10 pt-3 text-gray-400">
+                        <div>POWER: <span class="text-white">980 HP</span></div>
+                        <div>DOWNFORCE: <span class="text-white">650 KG</span></div>
+                    </div>
+                    <button onclick="openVehicleModal('KINETIC R-35', '980 HP Track Spec Monocoque', 'https://images.unsplash.com/photo-1544829099-b9a0c07fad1a?auto=format&fit=crop&w=800&q=80')" class="w-full py-2.5 rounded bg-vel-surface hover:bg-vel-cyan hover:text-black font-mono text-xs text-vel-slate font-bold uppercase transition-colors flex items-center justify-center space-x-2">
+                        <span>INSPECT TELEMETRY</span>
+                        <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vehicle 3 -->
+            <div class="fleet-card custom bg-vel-carbon border border-white/10 rounded-lg overflow-hidden group hover:border-vel-cyan/50 transition-all">
+                <div class="h-60 overflow-hidden relative">
+                    <img src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80" alt="Porsche Custom Build" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <div class="absolute top-3 left-3 bg-vel-obsidian/90 px-2.5 py-1 rounded text-[10px] font-mono text-vel-cyan border border-vel-cyan/30">
+                        CUSTOM TUNING
+                    </div>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <h3 class="font-syne text-2xl font-bold text-white">STEALTH 911 WORKS</h3>
+                        <p class="text-xs text-vel-slate font-mono">Bespoke Carbon Widebody</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] font-mono border-t border-white/10 pt-3 text-gray-400">
+                        <div>POWER: <span class="text-white">850 HP</span></div>
+                        <div>EXHAUST: <span class="text-white">TITANIUM STAGE 3</span></div>
+                    </div>
+                    <button onclick="openVehicleModal('STEALTH 911 WORKS', '850 HP Widebody Titanium Stage 3', 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80')" class="w-full py-2.5 rounded bg-vel-surface hover:bg-vel-cyan hover:text-black font-mono text-xs text-vel-slate font-bold uppercase transition-colors flex items-center justify-center space-x-2">
+                        <span>INSPECT TELEMETRY</span>
+                        <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- SPECIFICATIONS MATRIX COMPARISON -->
+    <section id="specs" class="py-28 bg-vel-carbon border-y border-white/10">
+        <div class="max-w-7xl mx-auto px-6 space-y-12">
+            
+            <div class="text-center max-w-2xl mx-auto space-y-3">
+                <span class="text-xs font-mono text-vel-cyan tracking-widest uppercase">// PERFORMANCE COMPARISON MATRIX</span>
+                <h2 class="font-syne text-4xl font-extrabold text-white">STOCK VS VELOCITY TRACK SPEC</h2>
+            </div>
+
+            <!-- Comparison Matrix Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs font-mono border-collapse">
+                    <thead>
+                        <tr class="border-b border-white/10 text-vel-slate uppercase">
+                            <th class="p-4">SPECIFICATION METRIC</th>
+                            <th class="p-4">FACTORY STOCK</th>
+                            <th class="p-4 text-vel-cyan">VELOCITY TUNED SPEC</th>
+                            <th class="p-4 text-right">DELTA IMPROVEMENT</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="p-4 text-white font-bold">HORSEPOWER OUTPUT</td>
+                            <td class="p-4 text-gray-400">650 BHP</td>
+                            <td class="p-4 text-vel-cyan font-bold">1,250 BHP</td>
+                            <td class="p-4 text-right text-emerald-400 font-bold">+92.3% HP</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="p-4 text-white font-bold">0-100 KM/H TIMING</td>
+                            <td class="p-4 text-gray-400">3.4 SEC</td>
+                            <td class="p-4 text-vel-cyan font-bold">2.1 SEC</td>
+                            <td class="p-4 text-right text-emerald-400 font-bold">-1.3 SECONDS</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="p-4 text-white font-bold">KERB WEIGHT</td>
+                            <td class="p-4 text-gray-400">1,680 KG</td>
+                            <td class="p-4 text-vel-cyan font-bold">1,290 KG</td>
+                            <td class="p-4 text-right text-emerald-400 font-bold">-390 KG SAVINGS</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="p-4 text-white font-bold">BRAKING 100-0 KM/H</td>
+                            <td class="p-4 text-gray-400">34.2 METERS</td>
+                            <td class="p-4 text-vel-cyan font-bold">27.8 METERS</td>
+                            <td class="p-4 text-right text-emerald-400 font-bold">-6.4 METERS</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- BUILD CONFIGURATOR (NO PRICING - SCOPE BASED) -->
+    <section id="configurator" class="py-28 px-6 max-w-4xl mx-auto space-y-12">
+        
+        <div class="text-center space-y-3">
+            <span class="text-xs font-mono text-vel-cyan tracking-widest uppercase">// BUILD CONFIGURATOR</span>
+            <h2 class="font-syne text-4xl sm:text-5xl font-extrabold text-white">CUSTOM SPECIFICATION INQUIRY</h2>
+            <p class="text-xs text-vel-slate font-mono max-w-lg mx-auto">
+                Configure your digital showcase parameters. Select your preferred vehicle class, web features, and dispatch directly to @zac.cosmos.engine for a tailored project quote.
+            </p>
+        </div>
+
+        <!-- Configurator Form Box -->
+        <div class="bg-vel-carbon border border-white/10 rounded-xl p-8 sm:p-12 space-y-8">
+            
+            <!-- Step 1: Vehicle / Brand Class -->
+            <div class="space-y-3">
+                <label class="block text-xs font-mono text-vel-slate uppercase">1. Vehicle / Project Category</label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                    <button type="button" onclick="selectConfigClass('Hypercar Showcase')" class="config-class-btn p-3 rounded border border-vel-cyan bg-vel-cyan/10 text-white font-bold text-center">
+                        HYPERCAR
+                    </button>
+                    <button type="button" onclick="selectConfigClass('Track & Motorsport')" class="config-class-btn p-3 rounded border border-white/10 text-vel-slate hover:border-vel-cyan text-center">
+                        MOTORSPORT
+                    </button>
+                    <button type="button" onclick="selectConfigClass('Custom Tuning House')" class="config-class-btn p-3 rounded border border-white/10 text-vel-slate hover:border-vel-cyan text-center">
+                        TUNING HOUSE
+                    </button>
+                    <button type="button" onclick="selectConfigClass('Exotic Rental Fleet')" class="config-class-btn p-3 rounded border border-white/10 text-vel-slate hover:border-vel-cyan text-center">
+                        EXOTIC FLEET
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Digital Features -->
+            <div class="space-y-3">
+                <label class="block text-xs font-mono text-vel-slate uppercase">2. Select Interactive Capabilities</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                    <label class="p-3 border border-white/10 rounded flex items-center space-x-3 cursor-pointer hover:border-white/30">
+                        <input type="checkbox" id="feature-3d" checked class="rounded accent-vel-cyan">
+                        <span class="text-white">Three.js 3D Interactive WebGL Engine</span>
+                    </label>
+                    <label class="p-3 border border-white/10 rounded flex items-center space-x-3 cursor-pointer hover:border-white/30">
+                        <input type="checkbox" id="feature-telemetry" checked class="rounded accent-vel-cyan">
+                        <span class="text-white">Real-Time Performance Telemetry UI</span>
+                    </label>
+                    <label class="p-3 border border-white/10 rounded flex items-center space-x-3 cursor-pointer hover:border-white/30">
+                        <input type="checkbox" id="feature-audio" checked class="rounded accent-vel-cyan">
+                        <span class="text-white">Web Audio Engine Sound Synthesis</span>
+                    </label>
+                    <label class="p-3 border border-white/10 rounded flex items-center space-x-3 cursor-pointer hover:border-white/30">
+                        <input type="checkbox" id="feature-lead" checked class="rounded accent-vel-cyan">
+                        <span class="text-white">Instagram DM Lead Dispatcher</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Step 3: Contact Inputs -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-mono text-vel-slate uppercase mb-1">Your Name / Rep</label>
+                    <input type="text" id="config-name" placeholder="Alex Rivera" class="w-full p-3 rounded bg-vel-obsidian border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-vel-cyan">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-mono text-vel-slate uppercase mb-1">Brand / Tuning House Name</label>
+                    <input type="text" id="config-brand" placeholder="Apex Dynamics" class="w-full p-3 rounded bg-vel-obsidian border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-vel-cyan">
+                </div>
+            </div>
+
+            <!-- Submit CTA -->
+            <button onclick="dispatchVelocitySpec()" class="w-full py-4 rounded bg-vel-cyan hover:bg-white text-black font-syne font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center space-x-2">
+                <i data-lucide="send" class="w-4 h-4"></i>
+                <span>DISPATCH BUILD SPEC TO @ZAC.COSMOS.ENGINE</span>
+            </button>
+
+            <div class="text-center text-[10px] text-vel-slate font-mono">
+                NO PUBLIC FIXED PRICES // TAILORED SCOPE QUOTATION IN DMs
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="py-12 border-t border-white/10 bg-vel-carbon text-xs font-mono text-vel-slate">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="space-y-1 text-center md:text-left">
+                <div class="font-syne font-bold text-white text-lg tracking-wider">VELOCITY // Z.C.E #02</div>
+                <div class="text-[10px] text-gray-500">Built by Z.C.E. — High Performance Digital Experiences</div>
+            </div>
+
+            <div class="flex items-center space-x-6 text-[11px]">
+                <a href="https://www.instagram.com/zac.cosmos.engine/" target="_blank" class="hover:text-vel-cyan transition-colors flex items-center space-x-1">
+                    <i data-lucide="instagram" class="w-3.5 h-3.5 text-vel-cyan"></i>
+                    <span>@zac.cosmos.engine</span>
+                </a>
+            </div>
+
+            <div class="text-[10px] text-gray-500">
+                © 2026 VELOCITY AUTOMOTIVE. ALL RIGHTS RESERVED.
+            </div>
+        </div>
+    </footer>
+
+    <!-- VEHICLE INSPECT MODAL -->
+    <div id="vehicle-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-6">
+        <div class="relative max-w-2xl w-full bg-vel-carbon border border-white/10 p-8 rounded-xl space-y-6 text-white">
+            <button onclick="closeVehicleModal()" class="absolute top-4 right-4 text-vel-slate hover:text-white">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+            
+            <h3 id="modal-vehicle-title" class="font-syne text-3xl font-bold"></h3>
+            <p id="modal-vehicle-subtitle" class="text-xs font-mono text-vel-cyan"></p>
+            
+            <div class="h-64 rounded overflow-hidden border border-white/10">
+                <img id="modal-vehicle-img" src="" alt="Vehicle Telemetry" class="w-full h-full object-cover">
+            </div>
+
+            <div class="pt-4 border-t border-white/10 flex justify-between items-center">
+                <span class="text-xs font-mono text-vel-slate">Z.C.E AUTOMOTIVE ENGINE</span>
+                <button onclick="closeVehicleModal(); scrollToConfigurator();" class="px-5 py-2.5 rounded bg-vel-cyan text-black font-syne font-bold text-xs uppercase">
+                    Build Similar Spec
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT & THREE.JS WebGL LOGIC -->
+    <script>
+        let selectedCategory = 'Hypercar Showcase';
+        let audioCtx = null;
+        let oscillator = null;
+        let isEngineRevving = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) lucide.createIcons();
+            initThreeJS();
+        });
+
+        // THREE.JS 3D AUTOMOTIVE WEBGL RENDERER
+        function initThreeJS() {
+            const container = document.getElementById('webgl-canvas-container');
+            if (!container) return;
+
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0A0C10, 0.035);
+
+            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.5, 5);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            // Metallic Automotive Mesh Object
+            const carGroup = new THREE.Group();
+
+            // Main Car Body (Sleek aerodynamic chassis)
+            const bodyGeo = new THREE.BoxGeometry(2.2, 0.5, 4.2);
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: 0x121620,
+                roughness: 0.2,
+                metalness: 0.9,
+            });
+            const carBody = new THREE.Mesh(bodyGeo, bodyMat);
+            carBody.position.y = 0.4;
+            carGroup.add(carBody);
+
+            // Cabin Roof
+            const roofGeo = new THREE.BoxGeometry(1.4, 0.4, 2.0);
+            const roofMat = new THREE.MeshStandardMaterial({
+                color: 0x0A0C10,
+                roughness: 0.1,
+                metalness: 0.95,
+            });
+            const roof = new THREE.Mesh(roofGeo, roofMat);
+            roof.position.set(0, 0.75, -0.2);
+            carGroup.add(roof);
+
+            // Cyan Headlights Particles
+            const lightGeo = new THREE.BoxGeometry(0.4, 0.1, 0.1);
+            const lightMat = new THREE.MeshBasicMaterial({ color: 0x38BDF8 });
+            
+            const leftLight = new THREE.Mesh(lightGeo, lightMat);
+            leftLight.position.set(-0.8, 0.4, 2.1);
+            carGroup.add(leftLight);
+
+            const rightLight = new THREE.Mesh(lightGeo, lightMat);
+            rightLight.position.set(0.8, 0.4, 2.1);
+            carGroup.add(rightLight);
+
+            // Ground Grid Grid
+            const gridHelper = new THREE.GridHelper(30, 30, 0x38BDF8, 0x1A202C);
+            gridHelper.position.y = 0;
+            scene.add(gridHelper);
+
+            scene.add(carGroup);
+
+            // Lighting Setup
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const cyanPointLight = new THREE.PointLight(0x38BDF8, 2, 10);
+            cyanPointLight.position.set(0, 2, 2);
+            scene.add(cyanPointLight);
+
+            // Animation Loop
+            let clock = new THREE.Clock();
+            function animate() {
+                requestAnimationFrame(animate);
+                const elapsedTime = clock.getElapsedTime();
+
+                // Gentle rotation
+                carGroup.rotation.y = Math.sin(elapsedTime * 0.3) * 0.4;
+                carGroup.position.y = Math.sin(elapsedTime * 1.5) * 0.03;
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            // Resize handling
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // WEB AUDIO ENGINE SOUND SYNTHESIS
+        function toggleEngineSound() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            if (isEngineRevving) {
+                if (oscillator) oscillator.stop();
+                isEngineRevving = false;
+                document.getElementById('audio-btn-label').textContent = 'REV ENGINE';
+            } else {
+                oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(60, audioCtx.currentTime); // Low engine idle
+                oscillator.frequency.exponentialRampToValueAtTime(320, audioCtx.currentTime + 1.2); // Rev pitch up
+
+                gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2.0);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 2.0);
+
+                isEngineRevving = true;
+                document.getElementById('audio-btn-label').textContent = 'REVVING...';
+                setTimeout(() => {
+                    isEngineRevving = false;
+                    document.getElementById('audio-btn-label').textContent = 'REV ENGINE';
+                }, 2000);
+            }
+        }
+
+        // Fleet Category Filter
+        function filterFleet(category) {
+            const cards = document.querySelectorAll('.fleet-card');
+            cards.forEach(card => {
+                if (category === 'all' || card.classList.contains(category)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Vehicle Modal
+        function openVehicleModal(title, subtitle, imgSrc) {
+            document.getElementById('modal-vehicle-title').textContent = title;
+            document.getElementById('modal-vehicle-subtitle').textContent = subtitle;
+            document.getElementById('modal-vehicle-img').src = imgSrc;
+            document.getElementById('vehicle-modal').classList.remove('hidden');
+        }
+
+        function closeVehicleModal() {
+            document.getElementById('vehicle-modal').classList.add('hidden');
+        }
+
+        function scrollToConfigurator() {
+            document.getElementById('configurator').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Configurator Class Selection
+        function selectConfigClass(className) {
+            selectedCategory = className;
+            const btns = document.querySelectorAll('.config-class-btn');
+            btns.forEach(btn => {
+                btn.className = 'config-class-btn p-3 rounded border border-white/10 text-vel-slate hover:border-vel-cyan text-center';
+            });
+            event.target.className = 'config-class-btn p-3 rounded border border-vel-cyan bg-vel-cyan/10 text-white font-bold text-center';
+        }
+
+        // Instagram Dispatcher
+        function dispatchVelocitySpec() {
+            const name = document.getElementById('config-name').value.trim() || 'Unspecified';
+            const brand = document.getElementById('config-brand').value.trim() || 'Unspecified';
+
+            const f3d = document.getElementById('feature-3d').checked ? 'Yes' : 'No';
+            const fTel = document.getElementById('feature-telemetry').checked ? 'Yes' : 'No';
+            const fAudio = document.getElementById('feature-audio').checked ? 'Yes' : 'No';
+
+            const specMsg = `🏎️ VELOCITY BUILD SPECIFICATION REQUEST:\n` +
+                            `• Client/Rep Name: ${name}\n` +
+                            `• Brand/Tuning House: ${brand}\n` +
+                            `• Category: ${selectedCategory}\n` +
+                            `• Features: 3D WebGL (${f3d}), Telemetry UI (${fTel}), Web Audio Engine (${fAudio})\n\n` +
+                            `Let's discuss a tailored build quotation!`;
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(specMsg).then(() => {
+                    alert("Build Specification Copied to Clipboard!\n\nRedirecting to @zac.cosmos.engine Instagram DM. Simply paste your spec into the conversation.");
+                    window.open("https://www.instagram.com/zac.cosmos.engine/", "_blank");
+                }).catch(() => fallbackCopy(specMsg));
+            } else {
+                fallbackCopy(specMsg);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.style.position = "fixed";
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                alert("Build Specification Copied to Clipboard!\n\nRedirecting to @zac.cosmos.engine Instagram DM.");
+            } catch (err) {
+                alert("Opening Instagram... Send us a DM to discuss your build!");
+            }
+            document.body.removeChild(textarea);
+            window.open("https://www.instagram.com/zac.cosmos.engine/", "_blank");
+        }
+    </script>
+</body>
+</html>
